@@ -21,7 +21,9 @@ def _parse_key(key_bytes: bytes) -> dict:
 
 class TranslationStore:
     def __init__(self, db_path: Path, source_lang: str):
-        self._env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=True, readonly=False)
+        # Auto-detect whether LMDB was created as a directory (Python) or file (JS)
+        subdir = Path(db_path).is_dir()
+        self._env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=subdir, readonly=False)
         self._source_lang = source_lang
 
     def get_all(self, target_lang: str, query: str | None = None) -> list[dict]:
