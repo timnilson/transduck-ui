@@ -8,7 +8,7 @@ MAP_SIZE = 10 * 1024 * 1024
 
 def _make_db(tmp_path, entries):
     db_path = tmp_path / "translations.lmdb"
-    env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=True)
+    env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=False)
     with env.begin(write=True) as txn:
         for key_str, value_dict in entries:
             txn.put(key_str.encode(), json.dumps(value_dict).encode())
