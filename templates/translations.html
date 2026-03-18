@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="/" class="back-link">&larr; Dashboard</a>
+<h1>{{ source_lang }} &rarr; {{ lang }} Translations</h1>
+
+<form class="search-bar" method="get" action="/translations/{{ lang }}">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search source text or translation...">
+    <button type="submit">Search</button>
+    {% if query %}
+    <a href="/translations/{{ lang }}" class="btn">Clear</a>
+    {% endif %}
+</form>
+
+{% if entries %}
+<table>
+    <thead>
+        <tr>
+            <th>Source Text</th>
+            <th>Context</th>
+            <th>Translation</th>
+            <th>Status</th>
+            <th>Model</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in entries %}
+        <tr data-key="{{ entry.key }}">
+            <td>
+                {{ entry.source_text }}
+                {% if entry.plural_category %}
+                <span class="status-badge">{{ entry.plural_category }}</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if entry.string_context %}
+                <span class="context-text">{{ entry.string_context }}</span>
+                {% else %}
+                <span class="context-text">-</span>
+                {% endif %}
+            </td>
+            <td class="translation-cell" data-key="{{ entry.key }}">
+                <span class="translation-text">{{ entry.translated_text }}</span>
+            </td>
+            <td><span class="status-badge {{ entry.status }}">{{ entry.status }}</span></td>
+            <td>{{ entry.model }}</td>
+            <td>
+                {% if ai_translate_enabled %}
+                <button class="btn ai" onclick="aiTranslate(this)" data-key="{{ entry.key }}">AI Translate</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">
+    {% if query %}
+    No translations matching "{{ query }}".
+    {% else %}
+    No translations yet for {{ lang }}.
+    {% endif %}
+</p>
+{% endif %}
+{% endblock %}
