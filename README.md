@@ -1,6 +1,6 @@
 # TransDuck UI
 
-A lightweight web interface for browsing and editing translations in a TransDuck SQLite database.
+A lightweight web interface for browsing and editing translations in a [TransDuck](https://github.com/timnilson/transduck) SQLite database.
 
 ![TransDuck UI — Translation Editor](static/screenshot.png)
 
