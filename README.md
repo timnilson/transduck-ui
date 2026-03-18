@@ -1,6 +1,8 @@
 # TransDuck UI
 
-A lightweight web interface for browsing and editing translations in a TransDuck LMDB database.
+A lightweight web interface for browsing and editing translations in a TransDuck SQLite database.
+
+![TransDuck UI — Translation Editor](static/screenshot.png)
 
 ## Setup
 
@@ -41,8 +43,9 @@ A lightweight web interface for browsing and editing translations in a TransDuck
 
 - Browse translations by target language
 - Search by source text or translated text
-- Edit translations inline (saves as `model: "human"`)
-- AI Translate using your configured provider (OpenAI or Claude API)
+- Click any translation to edit it inline (saves as `model: "human"`)
+- AI Translate button to re-translate any string using your configured provider
+- Dashboard shows project details, language stats, and translation counts
 
 ## Adding to .gitignore
 
