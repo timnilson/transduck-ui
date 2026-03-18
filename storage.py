@@ -1,105 +1,96 @@
-"""LMDB translation storage for transduck-ui."""
+"""SQLite translation storage for transduck-ui."""
 
-import json
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-
-import lmdb
-
-MAP_SIZE = 1024 * 1024 * 1024  # 1 GB
-
-
-def _parse_key(key_bytes: bytes) -> dict:
-    parts = key_bytes.decode().split("|")
-    return {
-        "source_lang": parts[0],
-        "target_lang": parts[1],
-        "content_hash": parts[2],
-        "plural_category": parts[3] if len(parts) > 3 else "",
-    }
 
 
 class TranslationStore:
     def __init__(self, db_path: Path, source_lang: str):
-        self._env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=False, readonly=False)
+        self._conn = sqlite3.connect(str(db_path))
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.row_factory = sqlite3.Row
         self._source_lang = source_lang
 
     def get_all(self, target_lang: str, query: str | None = None) -> list[dict]:
-        prefix = f"{self._source_lang}|{target_lang}|".encode()
-        query_lower = query.lower() if query else None
+        sql = """SELECT source_lang, target_lang, content_hash, plural_category,
+                        source_text, translated_text, string_context, status, model, created_at
+                 FROM translations
+                 WHERE source_lang = ? AND target_lang = ?"""
+        params: list = [self._source_lang, target_lang]
+
+        if query:
+            sql += " AND (source_text LIKE ? OR translated_text LIKE ?)"
+            like = f"%{query}%"
+            params.extend([like, like])
+
+        rows = self._conn.execute(sql, params).fetchall()
         results = []
-
-        with self._env.begin() as txn:
-            cursor = txn.cursor()
-            for key_bytes, value_bytes in cursor:
-                if not key_bytes.startswith(prefix):
-                    continue
-                parsed_key = _parse_key(key_bytes)
-                entry = json.loads(value_bytes)
-
-                if query_lower:
-                    source_match = query_lower in entry.get("source_text", "").lower()
-                    trans_match = query_lower in entry.get("translated_text", "").lower()
-                    if not source_match and not trans_match:
-                        continue
-
-                results.append({
-                    "key": key_bytes.decode(),
-                    "source_text": entry["source_text"],
-                    "translated_text": entry["translated_text"],
-                    "string_context": entry.get("string_context", ""),
-                    "status": entry["status"],
-                    "model": entry["model"],
-                    "created_at": entry["created_at"],
-                    "plural_category": parsed_key["plural_category"],
-                })
-
+        for row in rows:
+            key = f"{row['source_lang']}|{row['target_lang']}|{row['content_hash']}|{row['plural_category']}"
+            results.append({
+                "key": key,
+                "source_text": row["source_text"],
+                "translated_text": row["translated_text"],
+                "string_context": row["string_context"] or "",
+                "status": row["status"],
+                "model": row["model"],
+                "created_at": row["created_at"],
+                "plural_category": row["plural_category"],
+            })
         return results
 
     def get_stats(self) -> dict:
+        rows = self._conn.execute(
+            "SELECT target_lang, status, COUNT(*) as count FROM translations GROUP BY target_lang, status"
+        ).fetchall()
         stats: dict[str, dict[str, int]] = {}
-
-        with self._env.begin() as txn:
-            cursor = txn.cursor()
-            for key_bytes, value_bytes in cursor:
-                parsed_key = _parse_key(key_bytes)
-                lang = parsed_key["target_lang"]
-                entry = json.loads(value_bytes)
-
-                if lang not in stats:
-                    stats[lang] = {"translated": 0, "failed": 0}
-
-                if entry["status"] == "translated":
-                    stats[lang]["translated"] += 1
-                elif entry["status"] == "failed":
-                    stats[lang]["failed"] += 1
-
+        for row in rows:
+            lang = row["target_lang"]
+            if lang not in stats:
+                stats[lang] = {"translated": 0, "failed": 0}
+            if row["status"] == "translated":
+                stats[lang]["translated"] += row["count"]
+            elif row["status"] == "failed":
+                stats[lang]["failed"] += row["count"]
         return stats
 
     def get_entry(self, key: str) -> dict | None:
-        with self._env.begin() as txn:
-            raw = txn.get(key.encode())
-            if raw is None:
-                return None
-            return json.loads(raw)
+        parts = key.split("|")
+        row = self._conn.execute(
+            "SELECT * FROM translations WHERE source_lang=? AND target_lang=? AND content_hash=? AND plural_category=?",
+            (parts[0], parts[1], parts[2], parts[3] if len(parts) > 3 else ""),
+        ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
 
     def update_entry(self, key: str, translated_text: str, model: str) -> dict:
-        key_bytes = key.encode()
+        parts = key.split("|")
+        source_lang, target_lang, content_hash = parts[0], parts[1], parts[2]
+        plural_category = parts[3] if len(parts) > 3 else ""
 
-        with self._env.begin(write=True) as txn:
-            raw = txn.get(key_bytes)
-            if raw is None:
-                raise KeyError(f"Entry not found: {key}")
+        row = self._conn.execute(
+            "SELECT * FROM translations WHERE source_lang=? AND target_lang=? AND content_hash=? AND plural_category=?",
+            (source_lang, target_lang, content_hash, plural_category),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Entry not found: {key}")
 
-            entry = json.loads(raw)
-            entry["translated_text"] = translated_text
-            entry["model"] = model
-            entry["status"] = "translated"
-            entry["created_at"] = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            """UPDATE translations SET translated_text=?, model=?, status='translated', created_at=?
+               WHERE source_lang=? AND target_lang=? AND content_hash=? AND plural_category=?""",
+            (translated_text, model, now, source_lang, target_lang, content_hash, plural_category),
+        )
+        self._conn.commit()
 
-            txn.put(key_bytes, json.dumps(entry).encode(), overwrite=True)
-
+        entry = dict(row)
+        entry["translated_text"] = translated_text
+        entry["model"] = model
+        entry["status"] = "translated"
+        entry["created_at"] = now
         return entry
 
     def close(self):
-        self._env.close()
+        self._conn.close()

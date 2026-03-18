@@ -1,18 +1,45 @@
-import json
+import sqlite3
 import pytest
-import lmdb
 from storage import TranslationStore
-
-MAP_SIZE = 10 * 1024 * 1024
 
 
 def _make_db(tmp_path, entries):
-    db_path = tmp_path / "translations.lmdb"
-    env = lmdb.open(str(db_path), map_size=MAP_SIZE, subdir=False)
-    with env.begin(write=True) as txn:
-        for key_str, value_dict in entries:
-            txn.put(key_str.encode(), json.dumps(value_dict).encode())
-    env.close()
+    """Create a SQLite DB with translation entries. Each entry is (key_str, value_dict)."""
+    db_path = tmp_path / "translations.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("""
+        CREATE TABLE translations (
+            source_lang TEXT NOT NULL,
+            target_lang TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            plural_category TEXT NOT NULL DEFAULT '',
+            source_text TEXT NOT NULL,
+            translated_text TEXT NOT NULL,
+            model TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            project_context_hash TEXT NOT NULL,
+            string_context_hash TEXT NOT NULL,
+            string_context TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (source_lang, target_lang, content_hash, plural_category)
+        )
+    """)
+    for key_str, value_dict in entries:
+        parts = key_str.split("|")
+        conn.execute(
+            """INSERT INTO translations
+               (source_lang, target_lang, content_hash, plural_category,
+                source_text, translated_text, model, status, created_at,
+                project_context_hash, string_context_hash, string_context)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (parts[0], parts[1], parts[2], parts[3] if len(parts) > 3 else "",
+             value_dict["source_text"], value_dict["translated_text"],
+             value_dict["model"], value_dict["status"], value_dict["created_at"],
+             value_dict["project_context_hash"], value_dict["string_context_hash"],
+             value_dict.get("string_context", "")),
+        )
+    conn.commit()
+    conn.close()
     return db_path
 
 
