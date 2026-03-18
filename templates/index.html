@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<p>Source language: <strong>{{ source_lang }}</strong></p>
+
+<div class="language-grid">
+    {% for lang in languages %}
+    <a href="/translations/{{ lang.code }}" class="language-card">
+        <div class="lang-code">{{ lang.code }}</div>
+        <div class="lang-stats">
+            <span class="stat translated">{{ lang.translated }} translated</span>
+            {% if lang.failed > 0 %}
+            <span class="stat failed">{{ lang.failed }} failed</span>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% if not languages %}
+<p class="empty-state">No target languages configured. Check your transduck.yaml.</p>
+{% endif %}
+{% endblock %}
