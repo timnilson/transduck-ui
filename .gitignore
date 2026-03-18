@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.lmdb/
+*.lmdb-lock/
+.DS_Store
