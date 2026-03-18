@@ -29,9 +29,12 @@ store = TranslationStore(config.storage_path, config.source_lang)
 def inject_globals():
     return {
         "project_name": config.project_name,
+        "project_context": config.project_context,
         "source_lang": config.source_lang,
         "target_langs": config.target_langs,
         "ai_translate_enabled": config.ai_translate_enabled,
+        "provider": config.provider,
+        "backend_model": config.backend_model,
     }
 
 

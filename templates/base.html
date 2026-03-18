@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - TransDuck UI</title>
+    <title>{{ project_name }} - TransDuck</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav>
-        <a href="/" class="nav-brand">TransDuck UI</a>
-        <span class="nav-project">{{ project_name }}</span>
+        <a href="/" class="nav-brand">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="TransDuck" class="nav-logo">
+            <span>TransDuck Translation Management</span>
+        </a>
     </nav>
     <main>
         {% block content %}{% endblock %}

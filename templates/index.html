@@ -1,7 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dashboard</h1>
-<p>Source language: <strong>{{ source_lang }}</strong></p>
+<div class="project-header">
+    <h1>{{ project_name }}</h1>
+    {% if project_context %}
+    <p class="project-context">{{ project_context }}</p>
+    {% endif %}
+    <div class="project-meta">
+        <span class="meta-item">Source: <strong>{{ source_lang }}</strong></span>
+        <span class="meta-item">Provider: <strong>{{ provider }}</strong></span>
+        <span class="meta-item">Model: <strong>{{ backend_model }}</strong></span>
+    </div>
+</div>
+
+<h2 class="section-title">Target Languages</h2>
 
 <div class="language-grid">
     {% for lang in languages %}
@@ -12,6 +23,7 @@
             {% if lang.failed > 0 %}
             <span class="stat failed">{{ lang.failed }} failed</span>
             {% endif %}
+            <span class="stat total">{{ lang.total }} total</span>
         </div>
     </a>
     {% endfor %}
